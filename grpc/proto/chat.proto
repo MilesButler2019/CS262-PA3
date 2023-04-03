@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+
+
+service ChatService  {
+
+    rpc getUsers(Request) returns (stream Credentials) {}
+    rpc getInbox(Request) returns (stream Message) {}
+    rpc CreateAccount(Credentials) returns (AccountStatus) {}
+    rpc LogIn(Credentials) returns (AccountStatus){}
+    rpc SendChat(Message) returns (MessageStatus) {}
+    rpc DeleteAccount(Credentials) returns (AccountStatus) {}
+    rpc LogOut(Request) returns (AccountStatus) {}
+    rpc ChatStream(StreamRequest) returns (stream Message) {}
+    rpc CheckUserOnline(Request) returns (AccountStatus) {} 
+
+}
+
+
+
+message Message {
+
+    string content = 1;
+    string sent_time = 2;
+    string src = 3;
+    string dest = 4;
+}
+
+message Credentials {
+    string username = 1;
+    string password = 2; 
+
+}
+message Request {
+    int32 request_status = 1;
+    string username = 2;
+}
+
+message StreamRequest {
+    int32 id = 1;
+    string src = 2;
+    string dest = 3;
+
+}
+
+
+message MessageStatus {
+    int32 message_status = 1;
+    string message = 2; 
+}
+
+
+
+message AccountStatus {
+    bool AccountStatus = 1;
+    string message = 2; 
+}
