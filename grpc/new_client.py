@@ -5,6 +5,14 @@ import time
 import grpc
 import datetime
 import threading
+from grpc import ChannelCredentials
+from grpc._cython import cygrpc
+import pandas as pd
+import csv
+import random
+
+
+
 
 
 class Client:
@@ -14,7 +22,37 @@ class Client:
         self.username = None
         self.password = None 
         # create a gRPC channel + stub
-        channel = grpc.insecure_channel("localhost:9999")
+        
+        # channel = grpc.insecure_channel("localhost:9999")
+
+        #Download this file from server
+        
+    
+        # Open the CSV file and create a CSV reader
+        with open('live_machines.csv', mode='r') as csvfile:
+            csvreader = csv.reader(csvfile)
+
+            # Create an empty dictionary
+            self.servers = {}
+
+            # Iterate over each row in the CSV file
+            for row in csvreader:
+                # Assume the first column is the key and the second column is the value
+                key = row[0]
+                value = row[1]
+
+                # Add the key-value pair to the dictionary
+                self.servers[key] = value
+
+        self.connectable_severs = []
+        for i in self.servers.items():
+            if i[1] != False:
+                self.connectable_severs.append(i[0])
+        print(self.connectable_severs )
+
+        #Choose random server from cluster to connect
+        channel = grpc.insecure_channel(random.choice( self.connectable_severs))
+
         self.conn = chat_pb2_grpc.ChatServiceStub(channel)
         #Flag to see if user is logged in
         self.logged_in_status = False

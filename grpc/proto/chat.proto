@@ -13,6 +13,8 @@ service ChatService  {
     rpc LogOut(Request) returns (AccountStatus) {}
     rpc ChatStream(StreamRequest) returns (stream Message) {}
     rpc CheckUserOnline(Request) returns (AccountStatus) {} 
+    rpc CheckHealth(HealthCheckResponse) returns (HealthCheckResponse) {}
+
 
 }
 
@@ -50,8 +52,16 @@ message MessageStatus {
 }
 
 
-
 message AccountStatus {
     bool AccountStatus = 1;
     string message = 2; 
 }
+
+
+ message HealthCheckResponse { enum Status {
+    UNKNOWN = 0;
+    SERVING = 1;
+    NOT_SERVING = 2;
+  }
+  Status status = 1;
+  }

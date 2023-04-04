@@ -6,6 +6,7 @@ import time
 import threading
 from collections import defaultdict
 import datetime
+import argparse 
 
 
 
@@ -167,15 +168,22 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
             return chat_pb2.MessageStatus(message_status=0,message="Error Sending Message")
 
    
+    def CheckHealth(self, HealthCheckResponse, context):
+        status = chat_pb2.HealthCheckResponse.SERVING
+        return chat_pb2.HealthCheckResponse(status=status)
+        
         
 #method to run server
-def serve():
+def serve(port):
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
   chat_pb2_grpc.add_ChatServiceServicer_to_server(
       Listener(), server)
-  server.add_insecure_port('localhost:9999')
+  server.add_insecure_port('localhost:'+str(port))
   server.start()
   server.wait_for_termination()
 
 if __name__ == "__main__":
-    serve()
+    parser = argparse.ArgumentParser(description='Chat Server')
+    parser.add_argument('--p', type=int, help='Enter a Port number')
+    args = parser.parse_args()
+    serve(args.p)
