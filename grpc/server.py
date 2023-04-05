@@ -7,8 +7,17 @@ import threading
 from collections import defaultdict
 import datetime
 import argparse 
+from pymongo.mongo_client import MongoClient
+from pymongo.server_api import ServerApi
 
-
+uri = "mongodb+srv://milesbutler:mu7PhtTsqAxvgFUV@cluster0.6ax79dz.mongodb.net/test"
+try:
+    client = MongoClient(uri, server_api=ServerApi('1'))
+except AttributeError:
+    pass 
+#Weird shit going on within my version
+db = client['messages']
+collection = db['test']
 
 class Listener(chat_pb2_grpc.ChatServiceServicer):
     def __init__(self) -> None:
@@ -29,19 +38,49 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
             time.sleep(.1)
             yield creds
 
-      
+    def send_data_to_db(self,data,database,table):
+        try:
+            db = client[database]
+            collection = db[table]
+            collection.insert_one(data)
+        except:
+            return "Error with DB"
+        
+    def search_db(self,data,database,table):
+        try:
+            db = client[database]
+            collection = db[table]
+            result = collection.find_one(data)
+            return result
+        
+        except:
+            return "Error with DB"
+        
+    def update_db_row(self,filter,data,database,table):
+        try:
+            db = client[database]
+            collection = db[table]
+
+            update = {"$set": data}
+            result = collection.update_one(filter, update)
+            return result
+        except:
+            return "Error with DB"
+
 
     def CreateAccount(self, request, context):
 
         # Creates account and inbox for new user and logs them in
-        if request.username in self.accounts:
+        res = self.search_db({"username":request.username},database='messages',table='auth')
+        print(res)
+        if res != None:
+        # if request.username in self.accounts:
             reply =  chat_pb2.AccountStatus(AccountStatus=0,message='user name already exists')
             return reply
         else:
             try:
                 self.accounts[request.username] = request.password
                 self.all_inbox[request.username] = defaultdict(list)
-                
                 for i in range(1):
                     current_datetime = datetime.datetime.now()
                     formatted_datetime = current_datetime.strftime("%d-%m-%Y %H:%M:%S")
@@ -52,7 +91,14 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
                 self.user_sessions.append(request.username)
                 reply =  chat_pb2.AccountStatus(AccountStatus=1,message='Account Created Sucsessfully')
                 print(request.username,"has made an account")
-                return reply
+                self.send_data_to_db({"username":request.username,"password":request.password,"loggedIn":True},database='messages',table='auth')
+                try:
+                    self.send_data_to_db({"sender_username":"Server","reciver_username" : request.username,"time" : formatted_datetime, "content" : "Welcome to the server!"},database='messages',table='message_table')
+                    return reply
+                except:
+                    reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Error Creating Account, Try Again')
+                    return reply
+                
             except:
                 reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Error Creating Account, Try Again')
                 return reply
@@ -60,25 +106,43 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
     def LogIn(self, request, context):
         #  try and die login methd for checking account creditinals 
         try:
-            if self.accounts[request.username] ==  request.password:
-                self.user_sessions.append( request.username)
+            res = self.search_db({"username":request.username,"password":request.password},database='messages',table='auth')
+            if res is not None:
                 reply =  chat_pb2.AccountStatus(AccountStatus=1,message='Login Success')
+                try:
+                    res = self.update_db_row({"username":request.username,"password":request.password},data={"loggedIn":True},database='messages',table='auth')
+                except:
+                    reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Error setting user active')
+                    return reply
                 print(request.username,"is logged in")
                 return reply
+
             else:
-                reply =  chat_pb2.AccountStatus(AccountStatus=0,message='bad password')
+                reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Incorrect username or password')
                 return reply
         except:
-            reply =  chat_pb2.AccountStatus(AccountStatus=0,message='incorrect username')
+            reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Database Error')
             return reply
+        #     if self.accounts[request.username] ==  request.password:
+        #         self.user_sessions.append( request.username)
+        #         reply =  chat_pb2.AccountStatus(AccountStatus=1,message='Login Success')
+        #         print(request.username,"is logged in")
+        #         return reply
+        #     else:
+        #         reply =  chat_pb2.AccountStatus(AccountStatus=0,message='bad password')
+        #         return reply
+        # except:
+        #     reply =  chat_pb2.AccountStatus(AccountStatus=0,message='incorrect username')
+        #     return reply
 
     def LogOut(self, request, context):
         #This logs a user out
         try:
+            self.update_db_row(filter={"username":request.username},data={"loggedIn":False},database="messages",table='auth')
             reply = chat_pb2.AccountStatus(AccountStatus=1,message="You are sucsessfully logged out")
             # print(self.user_sessions)
             print(request.username,'is logged out')
-            self.user_sessions.remove(request.username)
+            # self.user_sessions.remove(request.username)
             return reply
         except:
             reply = chat_pb2.AccountStatus(AccountStatus=0,message="Error logging out")
