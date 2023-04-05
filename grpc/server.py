@@ -32,11 +32,24 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
 
     def getUsers(self,request,context):
         #Returns a stream of users
-        for i in self.accounts.keys():
-            creds = chat_pb2.Credentials()
-            creds.username = i
-            time.sleep(.1)
-            yield creds
+
+        try:
+            db = client['messages']
+            collection = db['auth']
+            cursor = collection.find({})
+
+            for i in cursor:
+                creds = chat_pb2.Credentials()
+                creds.username = i['username']
+                creds.status = i['loggedIn']
+                time.sleep(.1)
+                yield creds
+        except:
+            return "Error with DB"
+
+        
+
+        
 
     def send_data_to_db(self,data,database,table):
         try:
@@ -66,7 +79,18 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
             return result
         except:
             return "Error with DB"
+        
 
+    def update_db_rows(self,filter,data,database,table):
+        try:
+            db = client[database]
+            collection = db[table]
+
+            update = {"$set": data}
+            result = collection.update_many(filter, update)
+            return result
+        except:
+            return "Error with DB"
 
     def CreateAccount(self, request, context):
 
@@ -93,7 +117,7 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
                 print(request.username,"has made an account")
                 self.send_data_to_db({"username":request.username,"password":request.password,"loggedIn":True},database='messages',table='auth')
                 try:
-                    self.send_data_to_db({"sender_username":"Server","reciver_username" : request.username,"time" : formatted_datetime, "content" : "Welcome to the server!"},database='messages',table='message_table')
+                    self.send_data_to_db({"sender_username":"Server","reciver_username" : request.username,"time" : formatted_datetime, "content" : "Welcome to the server!","read":False},database='messages',table='message_table')
                     return reply
                 except:
                     reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Error Creating Account, Try Again')
@@ -152,14 +176,21 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
     def DeleteAccount(self,request,context):
         #Deletes a users account
         try:
-            if request.username in self.accounts and request.username in self.user_sessions:
-                del self.accounts[request.username]
-                self.user_sessions.remove(request.username)
+            db = client["messages"]
+            collection = db["auth"]
+
+            # Define a filter to select the document to delete
+            filter = {'username':request.username,'password':request.password}
+
+            try:
+            # Delete the document
+                result = collection.delete_one(filter)
                 reply =  chat_pb2.AccountStatus(AccountStatus=1,message='Account deleted successfully')
                 return reply
-            else:
+            except:
                 reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Account not Found')
                 return reply
+
         except:
             reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Error in your request')
             return reply
@@ -168,30 +199,52 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
     
     
     def getInbox(self, request, context):
-        #This returns a stram of messages
-        if request.username in self.accounts:
-            for i,v in self.all_inbox[request.username ].items():
-                for mes in self.all_inbox[request.username ][i]:
-                    time.sleep(.1)
-                    yield mes
-        else:
+        #This returns a stream of messages
+
+        try:
+            db = client['messages']
+            collection = db['message_table']
+            cursor = collection.find({'reciver_username':request.username})
+        
+            filter = {'reciver_username':request.username}
+
+            try:
+                result = collection.update_many(filter, {"$set": {'read':True}})
+                # print(result)
+            except:
+                result = collection.update_one(filter, {"$set": {'read':True}})
+                # print(result)
+
+            for msg in cursor:
+                reply = chat_pb2.Message(content=msg['content'],sent_time=msg['time'],dest = msg['reciver_username'],src=msg['sender_username'])
+                time.sleep(.1)
+                yield reply
+
+        except:
             reply = chat_pb2.Message(content="User not found",sent_time="today",dest = request.dest,src="server")
             return reply
 
 
 
 
+
+
     def CheckUserOnline(self,request, context):
         #This verifies is a user is online or exists
-        if request.username in self.user_sessions:
-            reply = chat_pb2.AccountStatus(AccountStatus=1, message="User online")
-            return reply
-        elif request.username not in self.accounts:
+        res = self.search_db({"username":request.username},database='messages',table='auth')
+        if res == None:
             reply = chat_pb2.AccountStatus(AccountStatus=0, message="User doesn't exist")
+            return reply
+        if res['loggedIn'] == True:
+            reply = chat_pb2.AccountStatus(AccountStatus=1, message="User online")
             return reply
         else:
             reply = chat_pb2.AccountStatus(AccountStatus=0, message="User Offline")
             return reply
+
+
+
+
 
     def ChatStream(self, request_iterator, context):
         """
@@ -204,14 +257,28 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
         """
         # For every client a infinite loop starts (in gRPC's own managed thread)    
 
-        while True:
-            last_index = len(self.all_inbox[request_iterator.src][request_iterator.dest])
 
-            # Check if there are any new messages
-            while len(self.all_inbox[request_iterator.src][request_iterator.dest]) > last_index:
-                n = self.all_inbox[request_iterator.src][request_iterator.dest][last_index]
-                last_index += 1
-                yield n
+        while True:
+            
+            db = client['messages']
+            collection = db['message_table']
+            cursor = collection.find({'reciver_username':request_iterator.src,'read':False})
+            
+            for msg in cursor:
+                reply = chat_pb2.Message(content=msg['content'],sent_time=msg['time'],dest = msg['reciver_username'],src=msg['sender_username'])
+                time.sleep(.1)
+                filter = {'_id':msg['_id']}
+                result = collection.update_one(filter, {"$set": {'read':True}})
+                print(msg['content'])
+                yield reply
+            #     # filter = {'reciver_username':request.username}
+            # # last_index = len(self.all_inbox[request_iterator.src][request_iterator.dest])
+
+            # # Check if there are any new messages
+            # while len(self.all_inbox[request_iterator.src][request_iterator.dest]) > last_index:
+            #     n = self.all_inbox[request_iterator.src][request_iterator.dest][last_index]
+            #     last_index += 1
+            #     yield n
                 
 
         
@@ -224,9 +291,12 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
         :return:
         """
         try:
+            current_datetime = datetime.datetime.now()
+            formatted_datetime = current_datetime.strftime("%d-%m-%Y %H:%M:%S")
+            self.send_data_to_db({"sender_username":request.src,"reciver_username" : request.dest ,"time" : formatted_datetime, "content" : request.content,"read":False},database='messages',table='message_table')
             print("[{}] {}".format(request.src, request.content))
             self.chat_thread = request.src
-            self.all_inbox[request.dest][request.src].append(request)
+            # self.all_inbox[request.dest][request.src].append(request)
             return chat_pb2.MessageStatus(message_status=1,message="Message sent sucsessfully")
         except:
             return chat_pb2.MessageStatus(message_status=0,message="Error Sending Message")

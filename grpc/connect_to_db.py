@@ -40,15 +40,15 @@ def send_data_to_db(data,database,table):
             # return "Error with DB"
     
 def update_db_row(filter,data,database,table):
-    try:
-        db = client[database]
-        collection = db[table]
+    # try:
+    db = client[database]
+    collection = db[table]
 
-        update = {"$set": data}
-        result = collection.update_one(filter, update)
-        return result
-    except:
-        return "Error with DB"
+    update = {"$set": data}
+    result = collection.update_one(filter, update)
+    return result
+    # except:
+        # return "Error with DB"
     
 def search_db(data,database,table):
         try:
@@ -61,7 +61,7 @@ def search_db(data,database,table):
             return "Error with DB"
         
 
-res = search_db({"username":"David"},database='messages',table='auth')
+res = update_db_row({"reciver_username":"test"},data={'read':True},database='messages',table='auth')
     
 print(res)
 # all_inbox["James"]["server"].append("hi")

@@ -53,6 +53,8 @@ class Client:
         #Choose random server from cluster to connect
         channel = grpc.insecure_channel(random.choice( self.connectable_severs))
 
+        # channel = grpc.insecure_channel("3.83.143.225:8500")
+
         self.conn = chat_pb2_grpc.ChatServiceStub(channel)
         #Flag to see if user is logged in
         self.logged_in_status = False
@@ -125,7 +127,7 @@ class Client:
             self.chat_thread_stop_event.set()
         
     def deliver_on_demand(self):
-        time.sleep(60)
+        time.sleep(1)
 
         while not self.stop_event.is_set():
             for i in self.messages_on_demand:
