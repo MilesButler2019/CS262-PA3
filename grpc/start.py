@@ -3,7 +3,6 @@ import signal
 import os
 import logging
 import time
-import consul 
 import chat_pb2
 import chat_pb2_grpc
 import grpc
@@ -20,22 +19,25 @@ endpoint_health = {}
 logging.basicConfig(filename='machine_log.txt', level=logging.INFO,
                     format='%(asctime)s %(message)s')
 
+
+
 for i in range(5):
     end_points.append("localhost:"+str(count+i))
-    subprocesses.append(subprocess.Popen(['python', 'server.py', '--p',str(count+i)]))
+    subprocesses.append(subprocess.Popen(['python', 'server.py', '--p',str(count+i)]).pid)
 
 
 # Function to kill all subprocesses
 def kill_subprocesses():
     for process in subprocesses:
         os.killpg(os.getpgid(process.pid), signal.SIGTERM)
+print(subprocesses)
 
 
 # Function to handle SIGINT signal
 def sigint_handler(sig, frame):
     print("Ctrl+C detected, killing subprocesses...")
     kill_subprocesses()
-    pdate_health()
+    update_health()
 # Register the SIGINT handler
 signal.signal(signal.SIGINT, sigint_handler)
 
@@ -67,8 +69,15 @@ def update_health():
     df.to_csv("live_machines.csv", header=False)
 
 
+out = dict(zip(end_points,subprocesses))
+df = pd.DataFrame.from_dict(out, orient="index")
+df.to_csv("crash_list.csv", header=False)
+# with open("output.txt", "w") as file:
+#     for k,item in zip(end_points,subprocesses):
+#         file.write(str(item) + " , " (ite+ "\n")
+
 while True: 
-    time.sleep(10)
+    time.sleep(.25)
     update_health()
 
 

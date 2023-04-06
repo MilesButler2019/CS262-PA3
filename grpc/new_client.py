@@ -10,7 +10,12 @@ from grpc._cython import cygrpc
 import pandas as pd
 import csv
 import random
+import json
 
+
+
+
+logged_in = False
 
 
 
@@ -28,34 +33,14 @@ class Client:
         #Download this file from server
         
     
-        # Open the CSV file and create a CSV reader
-        with open('live_machines.csv', mode='r') as csvfile:
-            csvreader = csv.reader(csvfile)
-
-            # Create an empty dictionary
-            self.servers = {}
-
-            # Iterate over each row in the CSV file
-            for row in csvreader:
-                # Assume the first column is the key and the second column is the value
-                key = row[0]
-                value = row[1]
-
-                # Add the key-value pair to the dictionary
-                self.servers[key] = value
-
-        self.connectable_severs = []
-        for i in self.servers.items():
-            if i[1] != False:
-                self.connectable_severs.append(i[0])
-        print(self.connectable_severs )
+        
 
         #Choose random server from cluster to connect
-        channel = grpc.insecure_channel(random.choice( self.connectable_severs))
+        # channel = grpc.insecure_channel(random.choice( self.connectable_severs))
 
         # channel = grpc.insecure_channel("3.83.143.225:8500")
 
-        self.conn = chat_pb2_grpc.ChatServiceStub(channel)
+        # self.conn = chat_pb2_grpc.ChatServiceStub(channel)
         #Flag to see if user is logged in
         self.logged_in_status = False
         #Person you want to chat with
@@ -66,6 +51,64 @@ class Client:
         #Event to Chat stream on demand sending
         self.chat_thread_stop_event = threading.Event()
    
+
+    def initalize_connection(self):
+        while True:
+            try:
+                    # Open the CSV file and create a CSV reader
+                with open('live_machines.csv', mode='r') as csvfile:
+                    csvreader = csv.reader(csvfile)
+
+                    # Create an empty dictionary
+                    self.servers = {}
+
+                    # Iterate over each row in the CSV file
+                    for row in csvreader:
+                        # Assume the first column is the key and the second column is the value
+                        key = row[0]
+                        value = row[1]
+
+                        # Add the key-value pair to the dictionary
+                        self.servers[key] = value
+
+                self.connectable_severs = []
+                for i in self.servers.items():
+                    if i[1] != False:
+                        self.connectable_severs.append(i[0])
+                print(self.connectable_severs)
+
+                server = random.choice( self.connectable_severs)
+                # json_config = json.dumps(
+                #     {
+                #         "methodConfig": [
+                #             {
+                #                 "name": [{"service": "chat_pb2_grpc.ChatService"}],
+                #                 "retryPolicy": {
+                #                     "maxAttempts": 5,
+                #                     "initialBackoff": "0.1s",
+                #                     "maxBackoff": "10s",
+                #                     "backoffMultiplier": 2,
+                #                     "retryableStatusCodes": ["UNAVAILABLE"],
+                #                 },
+                #             }
+                #         ]
+                #     }
+                # )
+
+                print("connected to",server)
+                # channel = grpc.insecure_channel(server, options=[("grpc.service_config", json_config)])
+                channel = grpc.insecure_channel(server)
+                self.conn = chat_pb2_grpc.ChatServiceStub(channel)
+                # stub = MyServiceStub(channel)
+                # response = stub.MyMethod(MyRequest())
+                break
+            except grpc.RpcError as e:
+                if e.code() == grpc.StatusCode.UNAVAILABLE and 'Socket closed' in str(e):
+                    #Choose random server from cluster to connect
+                    channel = grpc.insecure_channel(random.choice( self.connectable_severs))
+                    # channel = grpc.insecure_channel('localhost:50051')
+                else:
+                    raise e
     def __listen_for_messages(self):
         """
         This method will be ran in a separate thread as the main/ui thread, because the for-in call is blocking
@@ -213,14 +256,36 @@ class Client:
                         print(server_reply.message)
                         if server_reply.AccountStatus == 1:
                             break
-    
-def main():
-    try:
-        c = Client()
+
+
+
+
+
+
+
+
+def connect(c,log_in_status):
+    c.initalize_connection()
+
+    #Maybe this should be a db call
+    if log_in_status != True:
         c.login()
-        c.main_menu()
-    except:
+        logged_in = True
+    c.main_menu()
+    
+
+def main():
+    c = Client()
+    connect(c,logged_in)
+
+    while True:
+        try:
+            c.initalize_connection()
+        except:
+            c.initalize_connection()
+
         #Logs user out on termination
-        c.exit_logout()
+
+    c.exit_logout()
 
 main()

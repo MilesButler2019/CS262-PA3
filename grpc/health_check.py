@@ -32,4 +32,4 @@ def update_health():
 # 
 count = 8000
 for i in range(5):
-    print(check_health("127.0.0.1:"+str(count+i)))
+    print("127.0.0.1:"+str(count+i),check_health("127.0.0.1:"+str(count+i)))
