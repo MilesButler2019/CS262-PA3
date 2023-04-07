@@ -147,17 +147,7 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
         except:
             reply =  chat_pb2.AccountStatus(AccountStatus=0,message='Database Error')
             return reply
-        #     if self.accounts[request.username] ==  request.password:
-        #         self.user_sessions.append( request.username)
-        #         reply =  chat_pb2.AccountStatus(AccountStatus=1,message='Login Success')
-        #         print(request.username,"is logged in")
-        #         return reply
-        #     else:
-        #         reply =  chat_pb2.AccountStatus(AccountStatus=0,message='bad password')
-        #         return reply
-        # except:
-        #     reply =  chat_pb2.AccountStatus(AccountStatus=0,message='incorrect username')
-        #     return reply
+
 
     def LogOut(self, request, context):
         #This logs a user out
@@ -259,7 +249,6 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
 
 
         while True:
-            
             db = client['messages']
             collection = db['message_table']
             cursor = collection.find({'reciver_username':request_iterator.src,'read':False})
@@ -271,14 +260,6 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
                 result = collection.update_one(filter, {"$set": {'read':True}})
                 print(msg['content'])
                 yield reply
-            #     # filter = {'reciver_username':request.username}
-            # # last_index = len(self.all_inbox[request_iterator.src][request_iterator.dest])
-
-            # # Check if there are any new messages
-            # while len(self.all_inbox[request_iterator.src][request_iterator.dest]) > last_index:
-            #     n = self.all_inbox[request_iterator.src][request_iterator.dest][last_index]
-            #     last_index += 1
-            #     yield n
                 
 
         
@@ -312,7 +293,7 @@ def serve(port):
   server = grpc.server(futures.ThreadPoolExecutor(max_workers=10))
   chat_pb2_grpc.add_ChatServiceServicer_to_server(
       Listener(), server)
-  server.add_insecure_port('localhost:'+str(port))
+  server.add_insecure_port('[::]:'+str(port))
   server.start()
   server.wait_for_termination()
 
