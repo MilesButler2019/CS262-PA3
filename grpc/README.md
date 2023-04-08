@@ -1,11 +1,9 @@
 
-First Start Server in a terminal window
-
-`python Server.py`
+# Client Instructions
 
 Then in a new terminal initiate client
 
-`python Client.py`
+`python new_client.py`
 
 ## Example Creation of an Account
 
