@@ -251,8 +251,7 @@ class Listener(chat_pb2_grpc.ChatServiceServicer):
         while True:
             db = client['messages']
             collection = db['message_table']
-            cursor = collection.find({'reciver_username':request_iterator.src,'read':False})
-            
+            cursor = collection.find({'sender_username':request_iterator.dest,'reciver_username':request_iterator.src,'read':False})
             for msg in cursor:
                 reply = chat_pb2.Message(content=msg['content'],sent_time=msg['time'],dest = msg['reciver_username'],src=msg['sender_username'])
                 time.sleep(.1)
