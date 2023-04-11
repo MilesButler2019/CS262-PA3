@@ -4,7 +4,7 @@
 <img width="669" alt="Screen Shot 2023-04-08 at 4 40 37 PM" src="https://user-images.githubusercontent.com/47306315/230741714-b01b325d-8a51-42bb-bccb-c3cb06c17054.png">
 
 
-
+# Note the AWS instances are turned off to save ($)
 
 # 4/4 
 Today I started working on the assignment, my original idea is to implement a client side load balancing system from scratch. I decided to go with the grpc implentation as it felt cleaner. Although after many errors with a networking package consul, I have decided to add my own health check to the backend by chaning the .proto file to add a new rpc "Health Check" to ensure the status of the server. I had to change the server file to take in command line argument to take in a port number. I quickley realized that in order to replicate the backend that the data sould not live on the backend in case of failure and this was a higher priority than a load balancer. 
